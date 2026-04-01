@@ -1,237 +1,200 @@
-"""
-Unit tests for CommuCraft-AI storage module.
+"""Tests for the daily storage module."""
 
-Tests the JSON storage functionality for persisting daily learning content,
-user profiles, and communication history.
-
-Args:
-    None
-
-Returns:
-    None
-
-Errors:
-    pytest fixtures provide necessary setup/teardown
-"""
-
+import json
+import pytest
 import tempfile
 from pathlib import Path
+from typing import Dict, Any
 
-import pytest
-
-from src.sc_bot.storage.json_storage import JSONStorage
+from commucraft_ai.storage.daily_storage import (
+    DailyContentValidator,
+    save_daily_content,
+    load_daily_content,
+    get_latest_content,
+)
 
 
 @pytest.fixture
-def temp_storage_dir() -> Path:
-    """
-    Create temporary directory for test storage.
+def valid_content() -> Dict[str, Any]:
+    """Provide a valid daily content structure for testing."""
+    return {
+        "date": "2026-03-24",
+        "role": "sales",
+        "proficiency_level": "intermediate",
+        "intro_message": "As a sales professional, mastering communication is essential.",
+        "paragraph": "This is a test paragraph about professional communication. " * 3,
+        "vocabulary": [
+            {
+                "word": f"word{i}",
+                "meaning": f"Meaning of word {i}",
+                "usage_example": f"Example sentence with word{i}.",
+                "pronunciation": f"WORD-{i}",
+            }
+            for i in range(1, 16)
+        ],
+    }
 
-    Args:
-        None
 
-    Returns:
-        Path: Temporary directory path
-
-    Errors:
-        None
-    """
+@pytest.fixture
+def temp_content_dir() -> str:
+    """Provide a temporary directory for storing test content."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        yield Path(tmpdir)
+        yield tmpdir
 
 
-@pytest.fixture
-def storage(temp_storage_dir: Path) -> JSONStorage:
-    """
-    Create storage instance with temporary directory.
-
-    Args:
-        temp_storage_dir (Path): Temporary directory.
-
-    Returns:
-        JSONStorage: Storage instance.
-
-    Errors:
-        None
-    """
-    return JSONStorage(temp_storage_dir)
+def test_validator_valid_content(valid_content: Dict[str, Any]) -> None:
+    """Test that validator accepts valid content."""
+    assert DailyContentValidator.validate(valid_content) is True
 
 
-def test_save_and_load_daily_learning(storage: JSONStorage) -> None:
-    """
-    Test saving and loading daily learning content.
-
-    Args:
-        storage (JSONStorage): Storage instance.
-
-    Returns:
-        None
-
-    Errors:
-        AssertionError: If test fails.
-    """
-    content = {
-        "paragraph": "Test paragraph about professional communication",
-        "vocabulary": [{"word": "leverage", "meaning": "to use something to advantage"}],
-        "proficiency": "intermediate",
-    }
-
-    storage.save_daily_learning(content)
-    loaded = storage.load_daily_learning()
-
-    assert loaded is not None
-    assert loaded["content"]["paragraph"] == content["paragraph"]
-    assert len(loaded["content"]["vocabulary"]) == 1
+def test_validator_missing_required_field(valid_content: Dict[str, Any]) -> None:
+    """Test that validator rejects content missing required fields."""
+    del valid_content["paragraph"]
+    with pytest.raises(ValueError, match="Missing required field"):
+        DailyContentValidator.validate(valid_content)
 
 
-def test_save_and_load_user_profile(storage: JSONStorage) -> None:
-    """
-    Test saving and loading user profiles.
-
-    Args:
-        storage (JSONStorage): Storage instance.
-
-    Returns:
-        None
-
-    Errors:
-        AssertionError: If test fails.
-    """
-    user_id = "test_user_123"
-    profile = {"proficiency": "intermediate", "role": "manager", "preferences": {"tone": "professional"}}
-
-    storage.save_user_profile(user_id, profile)
-    loaded = storage.load_user_profile(user_id)
-
-    assert loaded is not None
-    assert loaded["proficiency"] == "intermediate"
-    assert loaded["role"] == "manager"
+def test_validator_empty_paragraph(valid_content: Dict[str, Any]) -> None:
+    """Test that validator rejects empty paragraph."""
+    valid_content["paragraph"] = ""
+    with pytest.raises(ValueError, match="Paragraph must be a non-empty string"):
+        DailyContentValidator.validate(valid_content)
 
 
-def test_save_communication_history(storage: JSONStorage) -> None:
-    """
-    Test saving communication history entries.
-
-    Args:
-        storage (JSONStorage): Storage instance.
-
-    Returns:
-        None
-
-    Errors:
-        AssertionError: If test fails.
-    """
-    user_id = "test_user_123"
-    entry = {"type": "email", "original": "Hi there", "rewritten": "Hello,\n\nI hope this message finds you well"}
-
-    storage.save_communication_history(user_id, entry)
-    history = storage.load_communication_history(user_id)
-
-    assert len(history) == 1
-    assert history[0]["type"] == "email"
+def test_validator_vocabulary_too_short(valid_content: Dict[str, Any]) -> None:
+    """Test that validator rejects vocabulary with less than 10 words."""
+    valid_content["vocabulary"] = valid_content["vocabulary"][:5]
+    with pytest.raises(ValueError, match="10-20 words"):
+        DailyContentValidator.validate(valid_content)
 
 
-def test_load_communication_history_with_limit(storage: JSONStorage) -> None:
-    """
-    Test loading communication history with limit.
-
-    Args:
-        storage (JSONStorage): Storage instance.
-
-    Returns:
-        None
-
-    Errors:
-        AssertionError: If test fails.
-    """
-    user_id = "test_user_123"
-
-    for i in range(5):
-        entry = {"type": "email", "original": f"Message {i}", "rewritten": f"Rewritten {i}"}
-        storage.save_communication_history(user_id, entry)
-
-    history = storage.load_communication_history(user_id, limit=3)
-    assert len(history) == 3
+def test_validator_vocabulary_too_long(valid_content: Dict[str, Any]) -> None:
+    """Test that validator rejects vocabulary with more than 20 words."""
+    valid_content["vocabulary"] = [
+        {
+            "word": f"word{i}",
+            "meaning": f"Meaning {i}",
+            "usage_example": f"Example {i}",
+            "pronunciation": f"WORD-{i}",
+        }
+        for i in range(1, 25)
+    ]
+    with pytest.raises(ValueError, match="10-20 words"):
+        DailyContentValidator.validate(valid_content)
 
 
-def test_list_files(storage: JSONStorage) -> None:
-    """
-    Test listing stored files.
-
-    Args:
-        storage (JSONStorage): Storage instance.
-
-    Returns:
-        None
-
-    Errors:
-        AssertionError: If test fails.
-    """
-    storage.save_daily_learning({"paragraph": "Test", "vocabulary": []})
-    storage.save_user_profile("user1", {"proficiency": "intermediate"})
-
-    files = storage.list_files()
-    assert len(files) >= 2
-
-    daily_files = storage.list_files("daily_learning_*.json")
-    assert len(daily_files) >= 1
+def test_validator_missing_word_field(valid_content: Dict[str, Any]) -> None:
+    """Test that validator rejects word missing required field."""
+    del valid_content["vocabulary"][0]["meaning"]
+    with pytest.raises(ValueError, match="missing required field"):
+        DailyContentValidator.validate(valid_content)
 
 
-def test_save_meeting_prep(storage: JSONStorage) -> None:
-    """
-    Test saving meeting preparation.
-
-    Args:
-        storage (JSONStorage): Storage instance.
-
-    Returns:
-        None
-
-    Errors:
-        AssertionError: If test fails.
-    """
-    user_id = "test_user_123"
-    prep_data = {
-        "meeting_title": "Q1 Review",
-        "objective": "Discuss performance",
-        "talking_points": ["Achievement 1", "Achievement 2"],
-    }
-
-    storage.save_meeting_prep(user_id, prep_data)
-    files = storage.list_files("meeting_prep_*.json")
-
-    assert len(files) >= 1
+def test_validator_empty_word_field(valid_content: Dict[str, Any]) -> None:
+    """Test that validator rejects word with empty field."""
+    valid_content["vocabulary"][0]["word"] = ""
+    with pytest.raises(ValueError, match="must be non-empty string"):
+        DailyContentValidator.validate(valid_content)
 
 
-def test_user_profile_not_found(storage: JSONStorage) -> None:
-    """
-    Test loading non-existent user profile.
+def test_save_daily_content_success(valid_content: Dict[str, Any], temp_content_dir: str) -> None:
+    """Test successful saving of daily content."""
+    file_path = save_daily_content(valid_content, output_dir=temp_content_dir)
 
-    Args:
-        storage (JSONStorage): Storage instance.
+    assert file_path.exists()
+    assert file_path.name == "2026-03-24.json"
 
-    Returns:
-        None
+    # Verify saved content
+    with open(file_path) as f:
+        saved_content = json.load(f)
 
-    Errors:
-        AssertionError: If test fails.
-    """
-    loaded = storage.load_user_profile("nonexistent_user")
-    assert loaded is None
+    assert saved_content == valid_content
 
 
-def test_daily_learning_not_found(storage: JSONStorage) -> None:
-    """
-    Test loading non-existent daily learning.
+def test_save_daily_content_creates_directory(valid_content: Dict[str, Any]) -> None:
+    """Test that save creates output directory if it doesn't exist."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        new_dir = Path(tmpdir) / "nested" / "content" / "dir"
+        file_path = save_daily_content(valid_content, output_dir=str(new_dir))
 
-    Args:
-        storage (JSONStorage): Storage instance.
+        assert new_dir.exists()
+        assert file_path.exists()
 
-    Returns:
-        None
 
-    Errors:
-        AssertionError: If test fails.
-    """
-    loaded = storage.load_daily_learning("2000-01-01")
-    assert loaded is None
+def test_save_daily_content_regenerate(valid_content: Dict[str, Any], temp_content_dir: str) -> None:
+    """Test that saving overwrites existing content for same date (regenerate)."""
+    # Save initial content
+    save_daily_content(valid_content, output_dir=temp_content_dir)
+
+    # Modify and save again
+    valid_content["paragraph"] = "Modified paragraph for testing regeneration."
+    file_path = save_daily_content(valid_content, output_dir=temp_content_dir)
+
+    # Verify overwritten content
+    with open(file_path) as f:
+        saved_content = json.load(f)
+
+    assert saved_content["paragraph"] == "Modified paragraph for testing regeneration."
+
+
+def test_save_daily_content_validation_failure(valid_content: Dict[str, Any], temp_content_dir: str) -> None:
+    """Test that save fails if content is invalid."""
+    del valid_content["vocabulary"]
+    with pytest.raises(ValueError):
+        save_daily_content(valid_content, output_dir=temp_content_dir)
+
+
+def test_load_daily_content_success(valid_content: Dict[str, Any], temp_content_dir: str) -> None:
+    """Test successful loading of daily content."""
+    save_daily_content(valid_content, output_dir=temp_content_dir)
+
+    loaded_content = load_daily_content("2026-03-24", content_dir=temp_content_dir)
+
+    assert loaded_content is not None
+    assert loaded_content == valid_content
+
+
+def test_load_daily_content_not_found(temp_content_dir: str) -> None:
+    """Test that loading non-existent content returns None."""
+    loaded_content = load_daily_content("2999-12-31", content_dir=temp_content_dir)
+    assert loaded_content is None
+
+
+def test_load_daily_content_malformed_json(temp_content_dir: str) -> None:
+    """Test that loading malformed JSON raises error."""
+    content_path = Path(temp_content_dir)
+    content_path.mkdir(exist_ok=True)
+
+    # Write malformed JSON
+    with open(content_path / "2026-03-24.json", "w") as f:
+        f.write("{invalid json")
+
+    with pytest.raises(json.JSONDecodeError):
+        load_daily_content("2026-03-24", content_dir=temp_content_dir)
+
+
+def test_get_latest_content_success(valid_content: Dict[str, Any], temp_content_dir: str) -> None:
+    """Test retrieving the most recent content."""
+    # Save multiple contents
+    valid_content["date"] = "2026-03-22"
+    save_daily_content(valid_content, output_dir=temp_content_dir)
+
+    valid_content["date"] = "2026-03-24"
+    save_daily_content(valid_content, output_dir=temp_content_dir)
+
+    latest_content = get_latest_content(content_dir=temp_content_dir)
+
+    assert latest_content is not None
+    assert latest_content["date"] == "2026-03-24"
+
+
+def test_get_latest_content_empty_directory(temp_content_dir: str) -> None:
+    """Test that getting latest content from empty directory returns None."""
+    latest_content = get_latest_content(content_dir=temp_content_dir)
+    assert latest_content is None
+
+
+def test_get_latest_content_directory_not_exists() -> None:
+    """Test that getting latest content from non-existent directory returns None."""
+    latest_content = get_latest_content(content_dir="/non/existent/path")
+    assert latest_content is None

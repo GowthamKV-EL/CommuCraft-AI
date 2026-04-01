@@ -1,320 +1,375 @@
 # CommuCraft-AI
 
-An AI-powered daily communication improvement system that helps employees enhance their professional communication skills through:
-
-- **Daily Learning**: Automatic daily vocabulary lessons with 10-20 professional words, meanings, and audio pronunciation
-- **Message Rewriting**: Intelligent rewriting of emails, chat messages, and documents for clarity and professionalism
-- **Meeting Preparation**: Comprehensive preparation guidance for important professional meetings and calls
+A minimal AI-powered daily communication learning system that leverages Google Gemini API and LangChain to help employees continuously improve their professional vocabulary and communication skills.
 
 ## Features
 
-### 1. Daily Learning
-- Generates daily professional communication insights
-- Provides 10-20 vocabulary words tailored to user proficiency level
-- Includes meanings and example usage for each word
-- Google Text-to-Speech audio pronunciation for all vocabulary
-- Automatically scheduled daily at configured time
-
-### 2. Message Rewriting
-- Rewrites professional messages while preserving original intent
-- Supports multiple communication types: emails, chat, documents, updates, presentations
-- Customizable tone: formal, casual, professional, friendly, assertive
-- Provides alternative versions and improvement analysis
-- Maintains communication history for reference
-
-### 3. Meeting Preparation
-- Generates structured talking points for meetings
-- Creates professional opening statements
-- Identifies potentially challenging questions with suggested responses
-- Provides communication tips tailored to audience
-- Creates preparation checklist
-
-## Installation
-
-### Prerequisites
-- Python 3.9 or higher
-- Google Gemini API key
-- Google Cloud credentials (for Text-to-Speech)
-
-### Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd AI_Agent
-   ```
-
-2. **Install dependencies using uv**
-   ```bash
-   uv sync
-   ```
-
-3. **Configure environment variables**
-   ```bash
-   # Edit .env file with your configuration
-   nano .env
-   ```
-   
-   Required variables:
-   ```env
-   GOOGLE_API_KEY=your_google_gemini_api_key
-   DAILY_LEARNING_TIME=09:00
-   USER_PROFICIENCY_LEVEL=intermediate
-   ```
-
-## Usage
-
-### Running the Application
-
-#### Daemon Mode (with scheduler)
-```bash
-uv run python main.py
-```
-This starts the application with the APScheduler, executing daily learning at the configured time.
-
-#### Interactive Mode
-```bash
-uv run python main.py --interactive
-# or
-uv run python main.py -i
-```
-This starts an interactive prompt where you can directly test the agent functions.
-
-### Interactive Commands
-In interactive mode, you can:
-- Request daily learning: `Generate today's daily learning`
-- Rewrite messages: `Help me rewrite this email: [your message]`
-- Prepare for meetings: `Prepare me for a meeting with my manager about the Q1 project`
-- Check status: `status`
-- Get help: `help`
-- Exit: `quit`
+- **Daily Learning Content**: Automatically generates one professional paragraph daily tailored to user's role and proficiency level
+- **Vocabulary Building**: Creates 10-20 new words with meanings, usage examples, and phonetic pronunciation guides
+- **Customizable**: Supports different job roles (Sales, Engineering, Marketing, etc.) and proficiency levels (Beginner, Intermediate, Advanced)
+- **Progressive Learning**: Vocabulary is set slightly above current level to encourage growth
+- **JSON Storage**: Daily content is stored as JSON for easy access and archival
+- **Automatic Scheduling**: Uses APScheduler to run daily at specified time
+- **Robust Retry Logic**: Exponential backoff retry mechanism for API resilience
+- **Comprehensive Logging**: File-based logging for debugging and monitoring
 
 ## Project Structure
 
 ```
 CommuCraft-AI/
 ├── src/
-│   └── sc_bot/
+│   └── commucraft_ai/
+│       ├── __init__.py
+│       ├── main.py                           # Entry point with APScheduler
+│       ├── config.py                         # Config management
 │       ├── agent/
-│       │   └── base_agent.py          # Main LangChain ReAct agent
-│       ├── tasks/
-│       │   ├── daily_learning.py      # Daily learning generation
-│       │   ├── message_rewriter.py    # Message rewriting logic
-│       │   └── meeting_prep.py        # Meeting preparation
+│       │   ├── __init__.py
+│       │   └── daily_learning_agent.py      # LangChain Gemini agent
+│       ├── prompts/
+│       │   ├── __init__.py
+│       │   └── daily_learning.py            # Prompt templates
 │       ├── storage/
-│       │   └── json_storage.py        # JSON-based persistence
-│       ├── utils/
-│       │   └── google_tts.py          # Google Text-to-Speech integration
-│       ├── config.py                  # Configuration management
-│       ├── error_handling.py          # Error handling and validation
-│       ├── scheduler.py               # APScheduler integration
-│       └── __init__.py
+│       │   ├── __init__.py
+│       │   └── daily_storage.py             # JSON persistence
+│       └── utils/
+│           ├── __init__.py
+│           ├── logger.py                    # File-based logging
+│           └── retry_handler.py             # Exponential backoff retry
+├── data/
+│   ├── user_profile.json                    # User configuration
+│   └── daily_content/                       # Generated daily content
+├── logs/
+│   └── app.log                              # Application logs
 ├── tests/
-│   ├── test_storage.py                # Storage tests
-│   ├── test_error_handling.py         # Error handling tests
-│   ├── test_scheduler.py              # Scheduler tests
-│   └── conftest.py                    # Pytest configuration
-├── main.py                            # Application entry point
-├── .env                               # Environment variables
-├── pyproject.toml                     # Project configuration
-├── AGENTS.md                          # Agent guidelines
-└── README.md                          # This file
+│   ├── __init__.py
+│   ├── test_daily_agent.py                 # Agent tests
+│   └── test_storage.py                     # Storage tests
+├── .env                                     # Environment variables
+├── pyproject.toml                           # Project config & dependencies
+├── AGENTS.md                                # Development guidelines
+└── README.md                                # This file
 ```
+
+## Quick Start
+
+### Prerequisites
+
+- Python 3.9 or higher
+- `uv` package manager ([install uv](https://docs.astral.sh/uv/))
+- Google API key with Gemini access
+
+### Setup
+
+1. **Clone the repository** (if not already done)
+   ```bash
+   cd /Users/gowthamkv/my_works/AI_Agent
+   ```
+
+2. **Create and populate `.env` file**
+   ```bash
+   # Copy the template and add your Google API key
+   cat .env  # Already created with placeholder
+   ```
+   
+   Edit `.env` with your actual Google API key:
+   ```
+   GOOGLE_API_KEY=your_actual_google_api_key_here
+   DAILY_RUN_TIME=09:00
+   ```
+
+3. **Update user profile** (`data/user_profile.json`)
+   ```json
+   {
+     "role": "sales",              # Your job role
+     "proficiency_level": "intermediate",  # Your language level
+     "email": "your.email@company.com"     # Your email (optional)
+   }
+   ```
+   
+   Supported roles: `sales`, `engineering`, `marketing`, `hr`, `management`, etc.
+   
+   Supported levels: `beginner`, `intermediate`, `advanced`
+
+4. **Install dependencies**
+   ```bash
+   uv sync
+   ```
+
+### Running the Agent
+
+#### Standard Execution
+The agent runs and waits until the scheduled time, then executes the job:
+
+```bash
+commucraft-ai
+```
+
+Or with `uv run`:
+
+```bash
+uv run commucraft-ai
+```
+
+**Important:** The agent will **block and wait** until the scheduled time (from `DAILY_RUN_TIME` in `.env`) before generating content. For example, if `DAILY_RUN_TIME=09:00` and you run the command at 8:00 AM, it will wait until 9:00 AM.
+
+#### Test Immediately
+To run immediately without waiting for the scheduled time:
+
+```bash
+commucraft-ai --now
+```
+
+Or with `uv run`:
+
+```bash
+uv run commucraft-ai --now
+```
+
+The agent will:
+1. Load your configuration
+2. Initialize the Gemini LLM  
+3. Generate daily learning content immediately (ignores `DAILY_RUN_TIME`)
+4. Save to `data/daily_content/YYYY-MM-DD.json`
+5. Exit
+
+#### Schedule with System Task Scheduler
+
+**macOS (Cron):**
+```bash
+# Edit crontab
+crontab -e
+
+# Add this line to run at 9:00 AM daily
+0 9 * * * cd /Users/gowthamkv/my_works/AI_Agent && /usr/local/bin/uv run commucraft-ai
+```
+
+**Linux (Cron):**
+```bash
+crontab -e
+
+# Add this line
+0 9 * * * cd /path/to/AI_Agent && uv run commucraft-ai
+```
+
+**Windows (Task Scheduler):**
+1. Open Task Scheduler
+2. Create Basic Task
+3. Set trigger to daily at 9:00 AM
+4. Set action: Run `uv run commucraft-ai` in your project directory
 
 ## Configuration
 
-### Environment Variables
+### Environment Variables (`.env`)
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `GOOGLE_API_KEY` | Required | Google Gemini API key |
-| `DAILY_LEARNING_TIME` | 09:00 | Time to run daily learning (HH:MM format) |
-| `USER_PROFICIENCY_LEVEL` | intermediate | User's English proficiency (beginner/intermediate/advanced) |
-| `USER_ROLE_FOCUS` | general | User's role or domain focus |
-| `TTS_LANGUAGE_CODE` | en-US | Language code for Text-to-Speech |
-| `TTS_VOICE_NAME` | en-US-Neural2-A | Voice name for Text-to-Speech |
-| `DATA_DIR` | ./data | Directory for storing data |
-| `LOG_LEVEL` | INFO | Logging level |
-| `DEBUG` | False | Debug mode |
+```
+GOOGLE_API_KEY=your_google_api_key_here    # Required: Google Gemini API key
+DAILY_RUN_TIME=09:00                       # When to run daily (24-hour format)
+```
 
-## API Components
+### User Profile (`data/user_profile.json`)
 
-### CommuCraftAgent
-The main AI agent using LangChain's ReAct pattern with Google Gemini.
+```json
+{
+  "role": "sales",                    # Job role
+  "proficiency_level": "intermediate", # Language level
+  "email": "user@company.com"        # Email (optional)
+}
+```
 
-**Methods:**
-- `run(user_input: str) -> str`: Execute agent with user input
-- `shutdown()`: Gracefully shutdown the agent
+## Generated Content Format
 
-### DailyLearningTask
-Generates daily learning content.
+Daily content is saved as JSON files in `data/daily_content/YYYY-MM-DD.json`:
 
-**Methods:**
-- `generate_daily_content() -> dict`: Generate daily learning
-- `get_today_learning() -> Optional[dict]`: Retrieve today's content
+```json
+{
+  "date": "2026-03-24",
+  "role": "sales",
+  "proficiency_level": "intermediate",
+  "paragraph": "Building strong client relationships requires clear and persuasive communication...",
+  "vocabulary": [
+    {
+      "word": "articulate",
+      "meaning": "To express ideas clearly and effectively",
+      "usage_example": "The sales director articulated the new strategy during the meeting.",
+      "pronunciation": "ar-TIK-yuh-layt"
+    },
+    {
+      "word": "conviction",
+      "meaning": "A strong belief or firm opinion",
+      "usage_example": "She spoke with conviction about the product benefits.",
+      "pronunciation": "kun-VIK-shun"
+    }
+    // ... more words (10-20 total)
+  ]
+}
+```
 
-### MessageRewriterTask
-Rewrites professional messages.
+## Development
 
-**Methods:**
-- `rewrite_message(...) -> dict`: Rewrite a message with analysis
-- `get_communication_history(user_id, limit=10) -> list`: Get history
+### Running Tests
 
-### MeetingPrepTask
-Prepares for meetings and calls.
-
-**Methods:**
-- `prepare_meeting(...) -> dict`: Generate meeting preparation
-- `_generate_talking_points(...)`: Generate discussion talking points
-- `_identify_challenging_questions(...)`: Anticipate difficult questions
-
-### TaskScheduler
-Manages scheduled task execution.
-
-**Methods:**
-- `add_daily_job(job_id, func, time)`: Add daily scheduled job
-- `add_cron_job(job_id, func, cron_schedule)`: Add cron scheduled job
-- `start()`: Start the scheduler
-- `stop()`: Stop the scheduler
-- `list_jobs() -> list`: List all scheduled jobs
-
-### JSONStorage
-Persistent data storage using JSON files.
-
-**Methods:**
-- `save_daily_learning(content)`: Save daily learning content
-- `load_daily_learning(date_str)`: Load daily learning
-- `save_user_profile(user_id, profile)`: Save user profile
-- `load_user_profile(user_id)`: Load user profile
-- `save_communication_history(user_id, entry)`: Save message rewrite
-- `load_communication_history(user_id, limit)`: Load rewrite history
-- `save_meeting_prep(user_id, prep_data)`: Save meeting preparation
-- `list_files(pattern)`: List stored files
-
-## Testing
-
-### Run all tests
 ```bash
+# Run all tests
 uv run pytest
+
+# Run specific test file
+uv run pytest tests/test_daily_agent.py -v
+
+# Run with coverage
+uv run pytest --cov=src tests/
 ```
 
-### Run specific test file
-```bash
-uv run pytest tests/test_storage.py -v
-```
+### Code Quality
 
-### Run with coverage
 ```bash
-uv run pytest tests/ --cov=src/sc_bot
-```
+# Format code
+uv run ruff format .
 
-## Code Quality
-
-### Linting and Formatting
-```bash
-# Check code style
-uv run ruff check src/ tests/ main.py
+# Check linting issues
+uv run ruff check .
 
 # Fix auto-fixable issues
-uv run ruff check --fix src/ tests/ main.py
-
-# Format code
-uv run ruff format src/ tests/ main.py
+uv run ruff check --fix .
 ```
 
-### Pre-commit Workflow
-1. Run: `uv run ruff check --fix .`
-2. Format: `uv run ruff format .`
-3. Test: `uv run pytest`
-4. Commit changes
+All code follows the guidelines in [AGENTS.md](./AGENTS.md):
+- 120-character line length limit
+- Complete type hints on all functions
+- Comprehensive docstrings with Args, Returns, and Errors sections
+- No `Any` type unless absolutely necessary
 
-## Error Handling
+## Architecture
 
-The system includes comprehensive error handling and escalation:
+### LangChain Agent
+- **Type**: Simple prompt chain (no complex tools needed for daily generation)
+- **LLM**: Google Gemini (`gemini-pro`)
+- **Pattern**: System prompt + User prompt → LLM → JSON response
 
-- **ValidationError**: Input validation failures
-- **StorageError**: Data persistence failures
-- **LLMError**: API call failures
-- **EscalationRequiredError**: Unclear user intent requiring clarification
+### Retry Logic
+- **Mechanism**: Exponential backoff decorator
+- **Attempts**: Max 3 retries with delays of 1s, 2s, 4s
+- **Failure Handling**: Logs all attempts and raises exception after max retries
 
-### Escalation Levels
-- `CLARIFICATION_NEEDED`: User needs to provide more details
-- `INTENT_AMBIGUOUS`: Request could be interpreted multiple ways
-- `INSUFFICIENT_CONTEXT`: Missing background information
-- `INVALID_REQUEST`: Request format is invalid
+### Storage
+- **Format**: JSON files per date (`YYYY-MM-DD.json`)
+- **Validation**: Schema validation before saving
+- **Overwrite**: Regenerates if same date runs multiple times
 
-## Data Storage
+### Scheduling
+- **Tool**: APScheduler (BackgroundScheduler)
+- **Trigger**: Cron expression (daily at specified time)
+- **Execution**: Runs once per program execution, then exits
 
-All data is stored locally in JSON format in the `./data` directory:
+## Error Handling & Escalation
 
-- `daily_learning_YYYY-MM-DD.json`: Daily learning content
-- `user_profiles.json`: User configuration and preferences
-- `communication_history_[user_id].json`: Message rewriting history
-- `meeting_prep_[user_id].json`: Meeting preparation records
-- `audio/`: Audio pronunciation files for vocabulary
+| Issue | Behavior |
+|-------|----------|
+| Missing GOOGLE_API_KEY | Log error and exit immediately |
+| Invalid user_profile.json | Log error and exit immediately |
+| API call fails after 3 retries | Log error, skip day (no content generated) |
+| Invalid LLM response JSON | Log error, skip day (retry on next run) |
+| Directory creation fails | Create parent directories recursively |
 
 ## Logging
 
-Logs are written to:
-- Console output: Real-time application events
-- `commucraft.log`: Persistent log file with full details
+Logs are saved to `logs/app.log` with the following format:
+
+```
+[2026-03-24 09:00:15] [INFO] [commucraft_ai.main] - Starting daily learning job
+[2026-03-24 09:00:15] [INFO] [commucraft_ai.config] - Configuration loaded
+[2026-03-24 09:00:16] [INFO] [commucraft_ai.agent] - Generating daily content
+[2026-03-24 09:00:18] [INFO] [commucraft_ai.storage] - Saved to data/daily_content/2026-03-24.json
+```
+
+Log files rotate automatically at 10MB with 5 backup files kept.
+
+## API Key Setup
+
+### Getting a Google API Key
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing one
+3. Enable the **Generative Language API**
+4. Go to **Credentials** → **Create Credentials** → **API Key**
+5. Copy the API key and add to `.env` file
+
+### Testing Your API Key
+
+```bash
+python -c "
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model='gemini-pro', google_api_key='YOUR_KEY')
+print(llm.invoke('Hello'))
+"
+```
 
 ## Dependencies
 
-### Core Dependencies
-- **langchain**: AI agent framework
-- **google-generativeai**: Google Gemini API access
-- **google-cloud-texttospeech**: Audio synthesis for pronunciation
-- **apscheduler**: Task scheduling
-- **pydantic**: Data validation
-- **python-dotenv**: Environment management
+### Core
+- **langchain** (>=0.1.0) - LLM orchestration framework
+- **google-generativeai** (>=0.3.0) - Google Gemini API client
+- **langchain-google-genai** (>=2.0.0) - LangChain integration for Gemini
+- **apscheduler** (>=3.10.0) - Task scheduling
+- **python-dotenv** (>=1.0.0) - Environment variable management
 
-### Development Dependencies
-- **pytest**: Testing framework
-- **ruff**: Linting and formatting
+### Development
+- **pytest** (>=7.0) - Testing framework
+- **ruff** (>=0.1.0) - Code linting and formatting
 
 ## Troubleshooting
 
-### Missing API Key
-**Error**: `GOOGLE_API_KEY not found in environment`
-**Solution**: Add your Google Gemini API key to `.env` file
-
-### Permission Denied on Data Directory
-**Error**: `PermissionError: [Errno 13] Permission denied: './data'`
-**Solution**: Ensure the application has write permissions to the current directory
-
-### Scheduler Not Running
-**Error**: Jobs not executing at scheduled time
-**Solution**: 
-- Ensure the application is running continuously
-- Check that `DAILY_LEARNING_TIME` is in valid HH:MM format
-- Verify logs for any errors
-
-### Tests Failing
-**Solution**: 
+### "No module named 'commucraft_ai'"
+Ensure `uv sync` has been run and dependencies are installed:
 ```bash
-uv sync  # Ensure dependencies are up to date
-uv run pytest tests/ -v  # Run with verbose output
+uv sync
 ```
+
+### "Cannot find commucraft-ai command"
+The CLI entry point needs to be installed. Run:
+```bash
+uv sync
+```
+
+Then verify the command is available:
+```bash
+uv run commucraft-ai --help
+```
+
+### "GOOGLE_API_KEY not found"
+Check that `.env` file exists and contains your actual API key (not the placeholder).
+
+### Agent doesn't run at scheduled time
+1. Verify `DAILY_RUN_TIME` format is `HH:MM` (e.g., `09:00`)
+2. Check system time is correct
+3. For cron jobs, verify the full path to `uv` is correct
+
+### Tests fail with import errors
+Ensure pytest is using the correct pythonpath:
+```bash
+uv run pytest tests/ -v
+```
+
+## Next Steps
+
+1. **Add message rewriting**: Create a message rewriting tool for professional emails
+2. **Add meeting prep**: Add meeting preparation tool with talking points
+3. **User feedback**: Collect feedback on daily content quality and adjust prompts
+4. **Analytics**: Track user engagement with generated content
+5. **Multi-language**: Expand to support multiple languages
 
 ## Contributing
 
-Please follow the guidelines in `AGENTS.md`:
-- Use `uv` for package management
-- Follow PEP 8 with 120-character line limit
-- Use complete type hints in all functions
-- Write comprehensive docstrings
-- Run tests before committing
+Follow the guidelines in [AGENTS.md](./AGENTS.md):
+- Use `uv` for dependency management
+- Write tests for all new features
+- Run `ruff format .` and `ruff check .` before committing
+- Ensure all tests pass with `pytest`
+- Add comprehensive docstrings to all functions
 
 ## License
 
-[Your License Here]
+Internal project for professional communication improvement.
 
 ## Support
 
-For issues, questions, or feature requests, please open an issue in the repository.
-
----
-
-**Last Updated**: March 23, 2026
-**Version**: 0.1.0
+For issues or questions, check the logs in `logs/app.log` or refer to the [AGENTS.md](./AGENTS.md) development guidelines.

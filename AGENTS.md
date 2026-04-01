@@ -9,7 +9,7 @@ This project uses `uv` as the default Python package manager and resolver.
 - **Adding dependencies:** Use `uv add <package_name>` to add a standard dependency.
 - **Adding dev dependencies:** Use `uv add --dev <package_name>` for development tools (like pytest or ruff).
 - **Syncing environment:** Use `uv sync` to ensure your local virtual environment is up to date with `pyproject.toml` and `uv.lock`.
-- **Running commands:** Always run scripts or tools within the `uv` environment using `uv run <command>` (e.g., `uv run python -m sc_bot.main` or `uv run pytest`).
+- **Running commands:** Always run scripts or tools within the `uv` environment using `uv run <command>` (e.g., `uv run python -m commucraft_ai.main` or `uv run pytest`).
 
 ## 2. Testing Setup
 
@@ -103,7 +103,7 @@ def format_greeting(name: str, greeting_prefix: str = "Hello", repeat_count: int
 ```
 CommuCraft-AI/
 ├── src/
-│   └── sc_bot/
+│   └── commucraft_ai/
 │       ├── __init__.py
 │       ├── main.py
 │       └── [module_files]
