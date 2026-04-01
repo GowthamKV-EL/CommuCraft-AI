@@ -78,6 +78,7 @@ CommuCraft-AI/
 
 1. **Clone the repository**
    ```bash
+   git clone https://github.com/GowthamKV-EL/CommuCraft-AI.git
    cd CommuCraft-AI
    ```
 
