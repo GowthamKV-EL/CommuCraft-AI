@@ -76,9 +76,9 @@ CommuCraft-AI/
 
 ### Setup
 
-1. **Clone the repository** (if not already done)
+1. **Clone the repository**
    ```bash
-   cd /Users/gowthamkv/my_works/AI_Agent
+   cd CommuCraft-AI
    ```
 
 2. **Create and populate `.env` file**
@@ -209,7 +209,7 @@ For automatic daily runs using system cron (macOS/Linux):
 crontab -e
 
 # Add this line to run at 2 PM daily (uses --now mode):
-0 14 * * * cd /Users/gowthamkv/my_works/AI_Agent && /usr/local/bin/uv run commucraft-ai --now >> logs/cron.log 2>&1
+0 14 * * * cd CommuCraft-AI && /usr/local/bin/uv run commucraft-ai --now >> logs/cron.log 2>&1
 ```
 
 **Alternative:** Run scheduler mode and let it manage daily execution:
