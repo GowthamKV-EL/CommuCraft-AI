@@ -1,6 +1,6 @@
 # CommuCraft-AI Setup Guide
 
-Quick setup instructions to get started with the daily learning agent.
+Quick setup instructions to get started with the multi-mode learning agent.
 
 ## Step 1: Get Your Google API Key
 
@@ -12,23 +12,56 @@ Quick setup instructions to get started with the daily learning agent.
 
 ## Step 2: Configure Environment
 
+Copy the template and edit:
 ```bash
-# Edit .env file with your API key
-# Open .env and replace placeholder:
-GOOGLE_API_KEY=paste_your_key_here
-DAILY_RUN_TIME=09:00  # Set your preferred time
+cp .env.example .env
 ```
+
+Edit `.env` with your credentials:
+
+**Minimum (Required):**
+```
+GOOGLE_API_KEY=paste_your_key_here
+DAILY_RUN_TIME=14:00
+```
+
+**Full Setup (Optional Confluence):**
+```
+GOOGLE_API_KEY=paste_your_key_here
+DAILY_RUN_TIME=14:00
+
+# Confluence integration (optional)
+CONFLUENCE_URL=https://your-workspace.atlassian.net/wiki
+CONFLUENCE_USERNAME=your.email@company.com
+CONFLUENCE_API_TOKEN=your_confluence_token
+CONFLUENCE_SPACE=COMMUCRAFT
+
+# Slack notifications (optional)
+SLACK_ENABLED=false
+SLACK_BOT_TOKEN=xoxb-your-token
+SLACK_CHANNEL_ID=C1234567890
+```
+
+### Getting Confluence API Token
+
+1. Go to [Atlassian Account Settings](https://id.atlassian.com/manage-profile/security/api-tokens)
+2. Click "Create API token"
+3. Copy the token and add to `.env`
 
 ## Step 3: Set Your Profile
 
 Edit `data/user_profile.json`:
 ```json
 {
-  "role": "sales",              # Change to your role
-  "proficiency_level": "intermediate",  # Change to your level
-  "email": "your@email.com"     # Optional
+  "role": "bioinformatics scientist",
+  "proficiency_level": "intermediate",
+  "email": "your@email.com"
 }
 ```
+
+**Supported roles:** sales, engineering, marketing, hr, management, bioinformatics scientist, and more
+
+**Supported levels:** beginner, intermediate, advanced
 
 ## Step 4: Install Dependencies
 
@@ -36,34 +69,68 @@ Edit `data/user_profile.json`:
 uv sync
 ```
 
-## Step 5: Run the Agent
+## Step 5: Choose Your Mode and Run
 
+### Mode 1: Immediate Execution (Testing)
+
+Run immediately and exit:
 ```bash
-# Run and wait for scheduled time
-uv run commucraft-ai
-
-# Or test immediately (ignores DAILY_RUN_TIME)
 uv run commucraft-ai --now
 ```
 
-## Step 6: Schedule Daily Execution
+This is perfect for testing without waiting for the scheduled time.
 
-**macOS/Linux - Cron:**
+### Mode 2: Schedule Mode (Default)
+
+Start background scheduler for daily runs at 2 PM IST:
+```bash
+# Starts scheduler, doesn't block
+uv run commucraft-ai
+
+# Or explicit:
+uv run commucraft-ai --schedule
+```
+
+The scheduler runs in the background and won't block your CLI. Press Ctrl+C to stop.
+
+### Mode 3: Interactive Chat
+
+Start interactive Q&A with semantic memory:
+```bash
+uv run commucraft-ai --chat
+```
+
+Type your questions, and the agent will answer with memory of previous Q&As. Type "quit" to exit.
+
+## Step 6: Set Up for Automatic Daily Execution
+
+### Option A: Using APScheduler (Recommended)
+
+Just run the scheduler mode in the background:
+```bash
+nohup uv run commucraft-ai --schedule > logs/scheduler.log 2>&1 &
+```
+
+This keeps the scheduler running even after you close the terminal.
+
+### Option B: Using Cron (macOS/Linux)
+
 ```bash
 crontab -e
 
-# Add this line to run at 9 AM daily:
-0 9 * * * cd /Users/gowthamkv/my_works/AI_Agent && /usr/local/bin/uv run commucraft-ai >> logs/cron.log 2>&1
+# Add this line to run immediate mode at 2 PM daily:
+0 14 * * * cd /Users/gowthamkv/my_works/AI_Agent && /usr/local/bin/uv run commucraft-ai --now >> logs/cron.log 2>&1
 ```
 
-**Windows - Task Scheduler:**
+### Option C: Using Task Scheduler (Windows)
+
 1. Open Task Scheduler
 2. Create Basic Task
-3. Trigger: Daily at 9:00 AM
-4. Action: Start program `uv` with arguments: `run commucraft-ai`
+3. Trigger: Daily at 2:00 PM
+4. Action: Start program `uv` with arguments: `run commucraft-ai --now`
 5. Start in: `C:\path\to\AI_Agent`
 
-## Verify It Works
+## Step 7: Verify It Works
 
 Check the logs:
 ```bash
@@ -73,14 +140,42 @@ tail -f logs/app.log
 Check generated content:
 ```bash
 ls -la data/daily_content/
-cat data/daily_content/2026-03-24.json
+cat data/daily_content/2026-04-01.json
 ```
-
-## Test Runs
 
 Run tests to verify setup:
 ```bash
 uv run pytest tests/ -v
+```
+
+Expected output:
+```
+40 passed in 12.33s
+```
+
+## Understanding the Three Modes
+
+| Mode | Command | When to Use | Behavior |
+|------|---------|-------------|----------|
+| **Immediate** | `--now` | Testing, manual runs | Runs immediately, exits |
+| **Scheduler** | `--schedule` (default) | Production, automated | Starts background scheduler, runs daily at 2 PM IST |
+| **Chat** | `--chat` | Interactive learning | Interactive Q&A with semantic memory |
+
+## File Structure After Setup
+
+```
+data/
+├── user_profile.json           # Your configuration
+└── daily_content/
+    ├── 2026-04-01.json        # Today's content
+    ├── 2026-03-31.json        # Previous content
+    └── ...
+
+logs/
+├── app.log                     # Main application logs
+└── scheduler.log              # Scheduler logs (if using nohup)
+
+.env                            # Your credentials (keep private!)
 ```
 
 ## Troubleshooting
@@ -89,44 +184,31 @@ uv run pytest tests/ -v
 |-------|----------|
 | `GOOGLE_API_KEY not found` | Edit `.env` with your actual key |
 | `No module named commucraft_ai` | Run `uv sync` first |
-| Agent doesn't run | Check `DAILY_RUN_TIME` format is `HH:MM` |
-
-## What Happens Daily
-
-1. Agent starts and loads configuration
-2. Waits until `DAILY_RUN_TIME`
-3. Sends prompt to Google Gemini API
-4. Generates paragraph + 10-20 vocabulary words
-5. Saves to `data/daily_content/YYYY-MM-DD.json`
-6. Logs result to `logs/app.log`
-7. Exits
-
-## File Structure
-
-```
-data/
-├── user_profile.json           # Your configuration
-└── daily_content/
-    ├── 2026-03-24.json        # Today's content
-    ├── 2026-03-23.json        # Yesterday's content
-    └── ...
-
-logs/
-└── app.log                     # All logs here
-
-.env                            # Your API key (KEEP PRIVATE!)
-```
+| `Permission denied` (Confluence) | Check your Confluence API token and username |
+| `Scheduler didn't start` | Check logs for timezone/permission issues |
+| Tests fail | Run `uv run pytest tests/ -v` for details |
 
 ## Next Steps
 
-1. Run the agent: `uv run python -m commucraft_ai.main`
-2. Check logs: `tail -f logs/app.log`
-3. View generated content: `cat data/daily_content/YYYY-MM-DD.json`
-4. Set up cron job for automatic daily execution
-5. Monitor logs regularly
+1. **Run the agent:** `uv run commucraft-ai --now` (test mode)
+2. **Check logs:** `tail -f logs/app.log`
+3. **View content:** `cat data/daily_content/YYYY-MM-DD.json`
+4. **Set up daily run:** Use scheduler mode or cron
+5. **Try chat mode:** `uv run commucraft-ai --chat`
+
+## What Happens Daily (Scheduler Mode)
+
+1. APScheduler wakes up at 14:00 IST (2 PM)
+2. Sends prompt to Google Gemini API
+3. Generates paragraph + 10-20 vocabulary words
+4. Saves to `data/daily_content/YYYY-MM-DD.json`
+5. Appends to Confluence if configured
+6. Logs result to `logs/app.log`
+7. Returns to waiting for next day
 
 ## Support
 
 - Check `logs/app.log` for errors
 - Review `README.md` for detailed information
 - See `AGENTS.md` for development guidelines
+- Check test results: `uv run pytest tests/ -v`
