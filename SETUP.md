@@ -71,54 +71,81 @@ uv sync
 
 ## Step 5: Choose Your Mode and Run
 
-### Mode 1: Immediate Execution (Testing)
+### Default Mode (No Arguments) - Recommended
 
-Run immediately and exit:
+Generate content immediately and enter interactive chat:
+```bash
+uv run commucraft-ai
+```
+
+The system will:
+1. Generate daily learning content right away
+2. Save to PDF (always) and Confluence (if configured)
+3. Offer interactive chat mode for questions
+4. Keep running until you type "quit"
+
+**Perfect for:** Daily interactive learning sessions
+
+### Schedule Mode (`--schedule`)
+
+Start background scheduler for daily runs at 2 PM IST:
+```bash
+uv run commucraft-ai --schedule
+```
+
+The system will:
+- Start APScheduler in background (non-blocking)
+- Generate content automatically at 2 PM IST each day
+- Save to PDF and Confluence (if available)
+- Keep running in background (Press Ctrl+C to stop)
+
+**Perfect for:** Automated daily content generation without manual interaction
+
+### Legacy Mode (`--now`)
+
+Generate immediately and exit (for cron jobs):
 ```bash
 uv run commucraft-ai --now
 ```
 
-This is perfect for testing without waiting for the scheduled time.
+The system will:
+- Generate content immediately
+- Save to PDF and Confluence (if available)
+- Exit (suitable for scheduled tasks)
 
-### Mode 2: Schedule Mode (Default)
+**Perfect for:** Integration with cron or system task schedulers
 
-Start background scheduler for daily runs at 2 PM IST:
-```bash
-# Starts scheduler, doesn't block
-uv run commucraft-ai
+## Step 6: Storage
 
-# Or explicit:
-uv run commucraft-ai --schedule
-```
+**PDF Storage (Always):**
+- Primary reliable storage at: `data/pdf_content/YYYY-MM-DD.pdf`
+- Always created, regardless of Confluence status
+- Includes vocabulary with pronunciation guide
+- Fallback formats: HTML (if PDF generation fails)
 
-The scheduler runs in the background and won't block your CLI. Press Ctrl+C to stop.
+**JSON Storage:**
+- Metadata and detailed vocabulary: `data/daily_content/YYYY-MM-DD.json`
+- Used by chat mode and analytics
 
-### Mode 3: Interactive Chat
+**Confluence (Optional):**
+- If configured, content is also appended to Confluence
+- Graceful fallback: PDF works even if Confluence unavailable
 
-Start interactive Q&A with semantic memory:
-```bash
-uv run commucraft-ai --chat
-```
+## Step 7: Set Up for Automatic Daily Execution
 
-Type your questions, and the agent will answer with memory of previous Q&As. Type "quit" to exit.
+### Option A: Schedule Mode (Recommended)
 
-## Step 6: Set Up for Automatic Daily Execution
-
-### Option A: Using APScheduler (Recommended)
-
-Just run the scheduler mode in the background:
+Start scheduler once (e.g., on login or via systemd):
 ```bash
 nohup uv run commucraft-ai --schedule > logs/scheduler.log 2>&1 &
 ```
-
-This keeps the scheduler running even after you close the terminal.
 
 ### Option B: Using Cron (macOS/Linux)
 
 ```bash
 crontab -e
 
-# Add this line to run immediate mode at 2 PM daily:
+# Add this line to run at 2 PM daily:
 0 14 * * * cd /Users/gowthamkv/my_works/AI_Agent && /usr/local/bin/uv run commucraft-ai --now >> logs/cron.log 2>&1
 ```
 
@@ -130,17 +157,19 @@ crontab -e
 4. Action: Start program `uv` with arguments: `run commucraft-ai --now`
 5. Start in: `C:\path\to\AI_Agent`
 
-## Step 7: Verify It Works
+## Step 8: Verify It Works
 
 Check the logs:
 ```bash
 tail -f logs/app.log
 ```
 
-Check generated content:
+Check generated PDF content:
 ```bash
-ls -la data/daily_content/
-cat data/daily_content/2026-04-01.json
+ls -la data/pdf_content/
+open data/pdf_content/2026-04-01.pdf  # macOS
+# or on Linux:
+xdg-open data/pdf_content/2026-04-01.pdf
 ```
 
 Run tests to verify setup:
@@ -155,27 +184,27 @@ Expected output:
 
 ## Understanding the Three Modes
 
-| Mode | Command | When to Use | Behavior |
-|------|---------|-------------|----------|
-| **Immediate** | `--now` | Testing, manual runs | Runs immediately, exits |
-| **Scheduler** | `--schedule` (default) | Production, automated | Starts background scheduler, runs daily at 2 PM IST |
-| **Chat** | `--chat` | Interactive learning | Interactive Q&A with semantic memory |
+| Mode | Command | Best For | Saves To |
+|------|---------|----------|----------|
+| **Default** | (no args) | Interactive learning | PDF + Confluence |
+| **Schedule** | `--schedule` | Automated daily runs | PDF + Confluence |
+| **Legacy** | `--now` | Cron integration | PDF + Confluence |
 
 ## File Structure After Setup
 
 ```
 data/
 ├── user_profile.json           # Your configuration
-└── daily_content/
-    ├── 2026-04-01.json        # Today's content
-    ├── 2026-03-31.json        # Previous content
-    └── ...
+├── daily_content/              # JSON metadata
+│   └── 2026-04-01.json        # Generated content
+└── pdf_content/               # PDF files (primary)
+    └── 2026-04-01.pdf        # Today's PDF
 
 logs/
 ├── app.log                     # Main application logs
 └── scheduler.log              # Scheduler logs (if using nohup)
 
-.env                            # Your credentials (keep private!)
+.env                            # Your credentials (KEEP PRIVATE!)
 ```
 
 ## Troubleshooting
@@ -184,31 +213,40 @@ logs/
 |-------|----------|
 | `GOOGLE_API_KEY not found` | Edit `.env` with your actual key |
 | `No module named commucraft_ai` | Run `uv sync` first |
-| `Permission denied` (Confluence) | Check your Confluence API token and username |
-| `Scheduler didn't start` | Check logs for timezone/permission issues |
+| `Permission denied` (Confluence) | Check API token and username, or rely on PDF |
+| `PDF not created` | Check `data/pdf_content/` directory exists, or check HTML fallback |
 | Tests fail | Run `uv run pytest tests/ -v` for details |
+
+## What Happens in Default Mode
+
+1. Immediately generates learning content
+2. Saves to PDF (always)
+3. Attempts to save to Confluence (if configured)
+4. Displays content to user
+5. Offers interactive Q&A with semantic memory
+6. Saves Q&As to Confluence (if user chooses and configured)
+7. Stays running until user types "quit"
+
+## What Happens in Schedule Mode
+
+1. Starts background scheduler
+2. Waits until 14:00 IST (2 PM)
+3. Generates learning content
+4. Saves to PDF and Confluence (if available)
+5. Returns to waiting for next day
+6. Repeats daily
 
 ## Next Steps
 
-1. **Run the agent:** `uv run commucraft-ai --now` (test mode)
+1. **Run default mode:** `uv run commucraft-ai` (try interactive chat)
 2. **Check logs:** `tail -f logs/app.log`
-3. **View content:** `cat data/daily_content/YYYY-MM-DD.json`
-4. **Set up daily run:** Use scheduler mode or cron
-5. **Try chat mode:** `uv run commucraft-ai --chat`
-
-## What Happens Daily (Scheduler Mode)
-
-1. APScheduler wakes up at 14:00 IST (2 PM)
-2. Sends prompt to Google Gemini API
-3. Generates paragraph + 10-20 vocabulary words
-4. Saves to `data/daily_content/YYYY-MM-DD.json`
-5. Appends to Confluence if configured
-6. Logs result to `logs/app.log`
-7. Returns to waiting for next day
+3. **View PDF:** `open data/pdf_content/YYYY-MM-DD.pdf` (macOS)
+4. **Run tests:** `uv run pytest tests/ -v`
+5. **Set up daily:** Use `--schedule` mode or cron
 
 ## Support
 
-- Check `logs/app.log` for errors
-- Review `README.md` for detailed information
+- Check `logs/app.log` for detailed error information
+- Review `README.md` for comprehensive documentation
 - See `AGENTS.md` for development guidelines
 - Check test results: `uv run pytest tests/ -v`

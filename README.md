@@ -5,16 +5,17 @@ A minimal AI-powered daily communication learning system that leverages Google G
 ## Features
 
 - **Three Operational Modes**:
-  - `--now`: Generate content immediately and exit (for testing)
-  - `--schedule`: Background scheduler runs daily at 2 PM IST (default mode)
-  - `--chat`: Interactive Q&A with semantic memory to avoid repetition
+  - **Default** (no args): Generate content immediately + offer interactive chat (stays running)
+  - **`--schedule`**: Background scheduler runs daily at 2 PM IST (non-blocking)
+  - **`--now`**: Generate immediately and exit (for cron jobs, legacy mode)
+- **PDF Storage** (Always): Daily content always saved to PDF files
+- **Confluence Integration** (Optional): If configured, appends to Confluence; graceful fallback to PDF only
 - **Daily Learning Content**: Automatically generates professional paragraph tailored to role/level
 - **Vocabulary Building**: Creates 10-20 new words with meanings, examples, and phonetic guides
 - **Semantic Memory System**: Uses sentence-transformers to find similar Q&As and avoid repetition
-- **Confluence Integration**: Saves daily content and chat Q&As to Confluence for team access
+- **Interactive Chat Mode**: Included in default mode for asking questions with memory
 - **Customizable**: Supports different roles and proficiency levels (Beginner, Intermediate, Advanced)
 - **Progressive Learning**: Vocabulary set slightly above current level to encourage growth
-- **JSON Storage**: Daily content stored as JSON for easy access and archival
 - **Non-blocking Scheduler**: Runs in background without preventing CLI usage
 - **Robust Retry Logic**: Exponential backoff retry mechanism for API resilience
 - **Comprehensive Logging**: File-based logging for debugging and monitoring
@@ -39,6 +40,7 @@ CommuCraft-AI/
 │       │   ├── __init__.py
 │       │   ├── daily_storage.py             # JSON persistence
 │       │   ├── confluence_storage.py        # Confluence API wrapper
+│       │   ├── pdf_generator.py             # PDF generation (primary)
 │       │   └── memory_system.py             # Semantic memory search
 │       └── utils/
 │           ├── __init__.py
@@ -122,50 +124,58 @@ CommuCraft-AI/
 
 ### Running the Agent
 
-#### Mode 1: Immediate Execution (`--now`)
+#### Default Mode (No Arguments) - Recommended for Daily Use
 
-Generate content immediately and exit. Perfect for testing:
+Generate content immediately and enter interactive chat mode:
 
 ```bash
-uv run commucraft-ai --now
+uv run commucraft-ai
 ```
 
 The agent will:
-1. Load configuration
-2. Initialize Gemini LLM
-3. Generate daily learning content immediately
-4. Save to `data/daily_content/YYYY-MM-DD.json`
-5. Append to Confluence if configured
-6. Exit
+1. Generate daily learning content immediately
+2. Save to both PDF (primary) and Confluence (if available)
+3. Display the generated content
+4. Enter interactive chat mode for Q&A
+5. Keep running until you type "quit" or press Ctrl+C
 
 **Output:**
 ```
-[INFO] Running in immediate mode (--now)
+[INFO] Running in default mode (immediate + interactive chat)
 [INFO] Generating content for role: bioinformatics scientist, level: intermediate
 [INFO] ✓ Daily content successfully generated and saved
 [INFO] ✓ Generated 14 vocabulary words
+[INFO] ✓ PDF saved to data/pdf_content/2026-04-01.pdf
 [INFO] ✓ Content appended to Confluence
-[INFO] ✓ Immediate run completed successfully. Exiting.
+[INFO] ✓ Daily content generation completed
+
+Starting interactive chat mode...
+Type your questions (type 'quit' or 'exit' to stop)
+
+You: What is bioinformatics?
+Agent: Bioinformatics is an interdisciplinary field...
+────────────────────────────────────────────────────────────────
+
+Save this Q&A? (yes/no): yes
+✓ Q&A saved to Confluence
+
+You: quit
 ```
 
-#### Mode 2: Schedule Mode (`--schedule`)
+#### Schedule Mode (`--schedule`)
 
-Start background scheduler for daily runs at 2 PM IST. This is the **default mode**:
+Start background scheduler for daily runs at 2 PM IST:
 
 ```bash
-# Default: starts scheduler
-uv run commucraft-ai
-
-# Or explicit:
 uv run commucraft-ai --schedule
 ```
 
 The agent will:
-1. Initialize Gemini LLM and Confluence storage
+1. Initialize all storage systems (PDF, Confluence)
 2. Start APScheduler in background (IST timezone)
 3. Run daily job at 14:00 (2 PM) IST
 4. Keep running until you press Ctrl+C
-5. Does NOT block - you can use the CLI afterwards
+5. Does NOT block - you can use the terminal afterwards
 
 **Output:**
 ```
@@ -175,47 +185,37 @@ The agent will:
 [INFO] Scheduler is running. Press Ctrl+C to stop.
 ```
 
-#### Mode 3: Interactive Chat Mode (`--chat`)
+#### Legacy Mode (`--now`)
 
-Start interactive Q&A with semantic memory:
+Generate content immediately and exit (for cron jobs):
 
 ```bash
-uv run commucraft-ai --chat
+uv run commucraft-ai --now
 ```
 
 The agent will:
-1. Load Confluence storage and semantic memory system
-2. Start interactive chat loop
-3. Answer your questions with AI assistance
-4. Remember previous Q&As to avoid repetition
-5. Optionally save Q&As to Confluence
+1. Generate daily learning content
+2. Save to PDF and Confluence (if available)
+3. Exit immediately
 
-**Example Session:**
-```
-[INFO] ✓ Chat mode started. Type your questions (type 'quit' to stop)
-────────────────────────────────────────────────────────────────
+**Note:** This mode is kept for backward compatibility. The default mode is recommended for interactive use.
 
-You: What is bioinformatics?
-Agent: Bioinformatics is an interdisciplinary field that applies computational...
-────────────────────────────────────────────────────────────────
+#### Automatic Daily Execution with Cron
 
-Save this Q&A? (yes/no): yes
-✓ Q&A saved to Confluence
+For automatic daily runs using system cron (macOS/Linux):
 
-You: quit
-```
-
-#### Schedule with System Task Scheduler
-
-For automatic daily runs without needing to keep a terminal open:
-
-**macOS/Linux (Cron):**
 ```bash
 # Edit crontab
 crontab -e
 
-# Add this line to run at 2 PM daily:
+# Add this line to run at 2 PM daily (uses --now mode):
 0 14 * * * cd /Users/gowthamkv/my_works/AI_Agent && /usr/local/bin/uv run commucraft-ai --now >> logs/cron.log 2>&1
+```
+
+**Alternative:** Run scheduler mode and let it manage daily execution:
+```bash
+# Start scheduler once (e.g., on login):
+uv run commucraft-ai --schedule &
 ```
 
 **Windows (Task Scheduler):**
@@ -259,11 +259,19 @@ SLACK_CHANNEL_ID=C1234567890
 }
 ```
 
-### Confluence Pages
+### Storage Options
 
-When Confluence is configured, the system creates/uses:
+**PDF Storage (Always):**
+- Primary storage location: `data/pdf_content/YYYY-MM-DD.pdf`
+- Includes: Daily learning content, vocabulary, pronunciation guide
+- Fallback format: HTML (if PDF generation fails)
+- Always generated regardless of Confluence configuration
+
+**Confluence Pages (Optional):**
+When Confluence is configured, the system also:
 - **CommuCraft Daily Learning Content**: Appends daily generated content
-- **CommuCraft Chat Q&A Memory**: Stores user-saved Q&As (chat mode)
+- **CommuCraft Chat Q&A Memory**: Stores user-saved Q&As (interactive mode)
+- Gracefully falls back to PDF-only if Confluence unavailable
 
 ## Generated Content Format
 
@@ -341,24 +349,36 @@ All code follows the guidelines in [AGENTS.md](./AGENTS.md):
 
 ## Architecture
 
-### Three Modes
+### Three Operational Modes
 
-**Mode 1: Immediate (`--now`)**
-- Run once and exit
-- Useful for testing or manual daily run
-- Does not require scheduling infrastructure
+**Default Mode (No Arguments)** - Recommended for interactive use:
+- Generate content immediately
+- Enter interactive chat mode (stays running)
+- Saves to PDF + Confluence (if available)
+- Allows Q&A with semantic memory
 
-**Mode 2: Scheduler (`--schedule` or default)**
-- Runs in background using APScheduler
+**Scheduler Mode (`--schedule`)** - For background daily runs:
+- Starts background scheduler using APScheduler
 - Non-blocking: doesn't prevent CLI usage
-- Uses IST timezone for scheduling
-- Daily job runs at 2 PM IST
+- Runs daily job at 2 PM IST
+- Saves to PDF + Confluence (if available)
 
-**Mode 3: Interactive Chat (`--chat`)**
-- Interactive Q&A with semantic memory
-- Uses QueryAgent with ConfluenceStorage
-- Searches previous responses before answering
-- Saves Q&As optionally to Confluence
+**Legacy Mode (`--now`)** - For cron jobs:
+- Generate immediately and exit
+- Useful for scheduled execution via cron
+- Saves to PDF + Confluence (if available)
+
+### PDF Generation (`PDFGenerator`)
+- **Primary storage**: Always saves to `data/pdf_content/YYYY-MM-DD.pdf`
+- **Fallback chain**: PDF → Text-based PDF → HTML (if reportlab unavailable)
+- **Content**: Daily learning with vocabulary table and pronunciation guide
+- **Reliable**: Works offline without Confluence dependency
+
+### Confluence Integration (Optional)
+- **Library**: atlassian-python-api
+- **Purpose**: Team sharing and collaborative learning
+- **Pages**: Separate docs for daily content and chat Q&As
+- **Graceful Degradation**: Automatically falls back to PDF-only if unavailable
 
 ### LangChain Agent
 - **Type**: Simple prompt chain (for daily generation)
@@ -371,22 +391,16 @@ All code follows the guidelines in [AGENTS.md](./AGENTS.md):
 - **Threshold**: 0.5 (configurable)
 - **Returns**: Top 3 similar responses by default
 
-### Confluence Integration
-- **Library**: atlassian-python-api
-- **Purpose**: Persistent storage and team sharing
-- **Pages**: Separate docs for daily content and chat Q&As
-- **Graceful Degradation**: Works without Confluence (optional)
-
 ### Retry Logic
 - **Mechanism**: Exponential backoff decorator
 - **Attempts**: Max 3 retries with delays of 1s, 2s, 4s
 - **Failure Handling**: Logs all attempts and raises exception after max retries
 
-### Storage
-- **Format**: JSON files per date (`YYYY-MM-DD.json`)
-- **Validation**: Schema validation before saving
-- **Overwrite**: Regenerates if same date runs multiple times
-- **Confluence**: Appends with timestamps (non-destructive)
+### Storage Hierarchy
+1. **PDF** (Always): Primary reliable storage
+2. **JSON**: Daily content metadata and full vocabulary
+3. **Confluence** (If configured): Team collaboration
+4. **Chat Q&As** (If Confluence available): User-saved Q&As
 
 ## Error Handling & Escalation
 
